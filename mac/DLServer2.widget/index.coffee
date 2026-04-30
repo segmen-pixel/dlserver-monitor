@@ -1,6 +1,3 @@
-command: "ssh trainer /usr/local/bin/trainer-stats"
-refreshFrequency: 3000
-
 HISTORY_LEN = 60   # 60 samples × 3s = 3 minutes
 
 # Persistent history across re-renders
@@ -32,6 +29,13 @@ rowHtml = (m) ->
       <div class="value" id="val-#{m.key}">--</div>
     </div>
   """
+
+groupHtml = (prefix) ->
+  (rowHtml(m) for m in metrics when m.key.startsWith(prefix)).join('')
+
+command: "ssh trainer /usr/local/bin/trainer-stats"
+
+refreshFrequency: 3000
 
 style: """
   top 60px
@@ -118,13 +122,13 @@ render: -> """
   <div class="sub">trainer @ 100.98.36.61</div>
 
   <div class="header">GPU 0  RTX 3080 Ti</div>
-  #{rowHtml(m) for m in metrics when m.key.startsWith('gpu0')}
+  #{groupHtml('gpu0')}
 
   <div class="header">GPU 1  RTX 3080 Ti</div>
-  #{rowHtml(m) for m in metrics when m.key.startsWith('gpu1')}
+  #{groupHtml('gpu1')}
 
   <div class="header cpu">CPU  i9-7900X  AIO</div>
-  #{rowHtml(m) for m in metrics when m.key.startsWith('cpu')}
+  #{groupHtml('cpu')}
 
   <div class="footer">SSH every 3s · history 3 min · bar=current  line=trend</div>
   <div class="err" id="errmsg" style="display:none"></div>
@@ -147,11 +151,9 @@ update: (output, domEl) ->
     val = values[m.key]
     pct = Math.min(100, Math.max(0, (val / m.max) * 100))
 
-    # bar fill
     bar = domEl.querySelector("#bar-#{m.key}")
     bar.style.width = "#{pct}%" if bar
 
-    # value text
     valEl = domEl.querySelector("#val-#{m.key}")
     if valEl
       txt = if m.fmt == 'flt' and val % 1 != 0
@@ -160,13 +162,11 @@ update: (output, domEl) ->
         "#{Math.round(val)}#{m.unit}"
       valEl.textContent = txt
 
-    # rolling history
     window.dlhist[m.key] ||= []
     h = window.dlhist[m.key]
     h.push(pct)
     h.shift() while h.length > HISTORY_LEN
 
-    # sparkline polyline (right-aligned: latest data on right)
     spark = domEl.querySelector("#spark-#{m.key}")
     if spark and h.length > 1
       poly = spark.querySelector('polyline')
