@@ -1,0 +1,17 @@
+[Unit]
+Description=GPU fan curve daemon (NVML)
+After=multi-user.target
+ConditionPathExists=/usr/bin/nvidia-smi
+
+[Service]
+Type=simple
+ExecStart=/data/seg-studio-dev/seg-studio/.venv-linux/bin/python /usr/local/bin/gpu-fan-control.py /etc/gpu-fan-control.conf
+ExecStopPost=/data/seg-studio-dev/seg-studio/.venv-linux/bin/python /usr/local/bin/gpu-fan-control.py reset
+Restart=on-failure
+RestartSec=5
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
