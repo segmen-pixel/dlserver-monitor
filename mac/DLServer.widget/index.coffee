@@ -1,19 +1,14 @@
 HISTORY_LEN = 60   # 60 samples × 3s = 3 minutes
 
-# Persistent history across re-renders
-window.dlhist ||= {}
+# Persistent history across re-renders (per-widget namespace)
+window.dlhist_dlserver ||= {}
 
 metrics = [
   {key: 'gpu0_temp',  label: 'Temp', max: 100,   unit: ' °C', color: '#88ff88', fmt: 'int'}
   {key: 'gpu0_fan',   label: 'Fan',  max: 100,   unit: '%',   color: '#50c8ff', fmt: 'int'}
   {key: 'gpu0_util',  label: 'Util', max: 100,   unit: '%',   color: '#7896ff', fmt: 'int'}
-  {key: 'gpu0_mem',   label: 'VRAM', max: 12288, unit: '',    color: '#c878dc', fmt: 'int'}
+  {key: 'gpu0_mem',   label: 'VRAM', max: 24576, unit: '',    color: '#c878dc', fmt: 'int'}
   {key: 'gpu0_power', label: 'Pwr',  max: 350,   unit: ' W',  color: '#ffb450', fmt: 'flt'}
-  {key: 'gpu1_temp',  label: 'Temp', max: 100,   unit: ' °C', color: '#88ff88', fmt: 'int'}
-  {key: 'gpu1_fan',   label: 'Fan',  max: 100,   unit: '%',   color: '#50c8ff', fmt: 'int'}
-  {key: 'gpu1_util',  label: 'Util', max: 100,   unit: '%',   color: '#7896ff', fmt: 'int'}
-  {key: 'gpu1_mem',   label: 'VRAM', max: 12288, unit: '',    color: '#c878dc', fmt: 'int'}
-  {key: 'gpu1_power', label: 'Pwr',  max: 350,   unit: ' W',  color: '#ffb450', fmt: 'flt'}
   {key: 'cpu_pkg',    label: 'Pkg',  max: 100,   unit: ' °C', color: '#ff8c50', fmt: 'int'}
   {key: 'cpu_max',    label: 'Max',  max: 100,   unit: ' °C', color: '#ff8c50', fmt: 'int'}
 ]
@@ -22,23 +17,23 @@ rowHtml = (m) ->
   """
     <div class="row">
       <div class="label">#{m.label}</div>
-      <div class="bar"><div class="fill" id="bar-#{m.key}" style="background: #{m.color}"></div></div>
-      <svg class="spark" id="spark-#{m.key}" viewBox="0 0 240 16" preserveAspectRatio="none">
+      <div class="bar"><div class="fill" id="bar1-#{m.key}" style="background: #{m.color}"></div></div>
+      <svg class="spark" id="spark1-#{m.key}" viewBox="0 0 240 16" preserveAspectRatio="none">
         <polyline fill="none" stroke="#{m.color}" stroke-width="1.4" />
       </svg>
-      <div class="value" id="val-#{m.key}">--</div>
+      <div class="value" id="val1-#{m.key}">--</div>
     </div>
   """
 
 groupHtml = (prefix) ->
   (rowHtml(m) for m in metrics when m.key.startsWith(prefix)).join('')
 
-command: "ssh trainer /usr/local/bin/trainer-stats"
+command: "ssh dl-server powershell -NoProfile -ExecutionPolicy Bypass -File C:/Users/yuki/bin/trainer-stats.ps1"
 
 refreshFrequency: 3000
 
 style: """
-  top 290px
+  top 0
   left 0
   width 540px
   background rgba(16, 16, 21, 0.88)
@@ -52,7 +47,7 @@ style: """
     margin 0
     font-size 14px
     font-weight 600
-    color #50c8ff
+    color #ffb450
     letter-spacing 0.5px
 
   .sub
@@ -118,26 +113,23 @@ style: """
 """
 
 render: -> """
-  <h1>DL-SERVER2</h1>
-  <div class="sub">trainer @ 100.98.36.61</div>
+  <h1>DL-SERVER</h1>
+  <div class="sub">trainer @ 100.113.135.38 (Windows)</div>
 
-  <div class="header">GPU 0  RTX 3080 Ti</div>
+  <div class="header">GPU 0  RTX 3090</div>
   #{groupHtml('gpu0')}
 
-  <div class="header">GPU 1  RTX 3080 Ti</div>
-  #{groupHtml('gpu1')}
-
-  <div class="header cpu">CPU  i9-7900X  AIO</div>
+  <div class="header cpu">CPU  i9-13900KF  (ACPI)</div>
   #{groupHtml('cpu')}
 
   <div class="footer">SSH every 3s · history 3 min · bar=current  line=trend</div>
-  <div class="err" id="errmsg" style="display:none"></div>
+  <div class="err" id="errmsg1" style="display:none"></div>
 """
 
 update: (output, domEl) ->
-  errEl = domEl.querySelector("#errmsg")
+  errEl = domEl.querySelector("#errmsg1")
   fields = output.trim().split(',')
-  if fields.length < 12
+  if fields.length < 7
     errEl.style.display = 'block'
     errEl.textContent = "fetch failed: #{output.trim().slice(0, 100)}"
     return
@@ -151,10 +143,10 @@ update: (output, domEl) ->
     val = values[m.key]
     pct = Math.min(100, Math.max(0, (val / m.max) * 100))
 
-    bar = domEl.querySelector("#bar-#{m.key}")
+    bar = domEl.querySelector("#bar1-#{m.key}")
     bar.style.width = "#{pct}%" if bar
 
-    valEl = domEl.querySelector("#val-#{m.key}")
+    valEl = domEl.querySelector("#val1-#{m.key}")
     if valEl
       txt = if m.fmt == 'flt' and val % 1 != 0
         "#{val.toFixed(1)}#{m.unit}"
@@ -162,12 +154,12 @@ update: (output, domEl) ->
         "#{Math.round(val)}#{m.unit}"
       valEl.textContent = txt
 
-    window.dlhist[m.key] ||= []
-    h = window.dlhist[m.key]
+    window.dlhist_dlserver[m.key] ||= []
+    h = window.dlhist_dlserver[m.key]
     h.push(pct)
     h.shift() while h.length > HISTORY_LEN
 
-    spark = domEl.querySelector("#spark-#{m.key}")
+    spark = domEl.querySelector("#spark1-#{m.key}")
     if spark and h.length > 1
       poly = spark.querySelector('polyline')
       step = 240 / Math.max(HISTORY_LEN - 1, 1)
