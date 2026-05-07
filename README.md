@@ -14,8 +14,9 @@ One Bash helper on the server emits a CSV line of GPU/CPU stats; the Windows (Ra
 │  Util  ▰▰▰▰  ▁▁▁▔▔▔   100%   │
 │  ...                     │
 │  GPU 1  ...              │
-│  CPU  i9-7900X  AIO      │
+│  CPU  i9-7900X  PA120    │
 │  Pkg   ▰▰▱▱▱  ──‾‾──   68 °C │
+│  Fan   ▰▰▰▱▱  ──‾‾──  900 RPM│
 └──────────────────────────┘
 ```
 
@@ -56,13 +57,22 @@ sudo install -m 0755 trainer/trainer-stats.sh /usr/local/bin/trainer-stats
 sudo install -m 0755 trainer/cpu-stat.sh      /usr/local/bin/cpu-stat
 sudo install -m 0755 trainer/gpu-stat-norm.sh /usr/local/bin/gpu-stat-norm
 
-# (optional) fan curve daemon  — needs nvidia-ml-py importable as root
+# (optional) GPU fan curve daemon  — needs nvidia-ml-py importable as root
 sudo install -m 0755 trainer/gpu-fan-control.py    /usr/local/bin/gpu-fan-control.py
 sudo install -m 0644 trainer/gpu-fan-control.conf  /etc/gpu-fan-control.conf
 sudo install -m 0644 trainer/gpu-fan-control.service /etc/systemd/system/gpu-fan-control.service
 # edit ExecStart in the .service to point at the python you want to use
 sudo systemctl daemon-reload
 sudo systemctl enable --now gpu-fan-control
+
+# (optional) CPU fan curve for NCT6795D super-IO (MSI X299, etc.)
+# Aggressive curve: 30C/29% → 50C/60% → 65C/90% → 75C/100%
+# Edit thresholds in cpu-fan-curve.sh if your cooler is different.
+sudo install -m 0755 trainer/cpu-fan-curve.sh         /usr/local/sbin/cpu-fan-curve.sh
+sudo install -m 0644 trainer/cpu-fan-curve.service    /etc/systemd/system/cpu-fan-curve.service
+sudo install -m 0644 trainer/nct6775-modules-load.conf /etc/modules-load.d/nct6775.conf
+sudo systemctl daemon-reload
+sudo systemctl enable --now cpu-fan-curve
 
 # (optional) Conky desktop overlay for trainer's own GUI session
 sudo apt install conky-all
@@ -71,10 +81,10 @@ cp trainer/conky-dual-gpu.conf ~/.config/conky/dual-gpu.conf
 
 # verify
 /usr/local/bin/trainer-stats
-# → e.g. 38,67,0,6080,99.84,41,78,0,11328,106.84,75,76
+# → e.g. 38,67,0,6080,99.84,41,78,0,11328,106.84,75,76,900
 ```
 
-The CSV is 12 fields, in this order:
+The CSV is 13 fields, in this order:
 
 | # | field | unit |
 |---|---|---|
@@ -90,6 +100,7 @@ The CSV is 12 fields, in this order:
 | 10 | `gpu1_power` | W |
 | 11 | `cpu_pkg` | °C (CPU package) |
 | 12 | `cpu_max` | °C (hottest core) |
+| 13 | `cpu_fan_rpm` | RPM (NCT6795D `fan2_input`, 0 if not present) |
 
 > **VRAM cap is hardcoded to 12288 MiB** in the clients (3080 Ti). Change in the skin/widget if your card is different.
 
@@ -124,7 +135,7 @@ Start-Process wscript.exe -ArgumentList """$dst\start-fetch.vbs""" -WindowStyle 
 
 Activate the skin: Rainmeter tray icon → Manage → DLServer2 → DLServer2.ini → Load.
 
-The PS loop writes `%TEMP%\trainer-stats.txt` every 3 s; the Rainmeter skin reads that file via `WebParser` and parses the 12 capture groups.
+The PS loop writes `%TEMP%\trainer-stats.txt` every 3 s; the Rainmeter skin reads that file via `WebParser` and parses the 13 capture groups.
 
 ## Install — Mac (Übersicht)
 

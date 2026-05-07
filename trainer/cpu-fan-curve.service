@@ -1,0 +1,12 @@
+[Unit]
+Description=Apply aggressive CPU fan curve (NCT6795D pwm2)
+After=systemd-modules-load.service
+Wants=systemd-modules-load.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/cpu-fan-curve.sh
+
+[Install]
+WantedBy=multi-user.target
