@@ -7,12 +7,12 @@ metrics = [
   {key: 'gpu0_temp',  label: 'Temp', max: 100,   unit: ' °C', color: '#88ff88', fmt: 'int'}
   {key: 'gpu0_fan',   label: 'Fan',  max: 100,   unit: '%',   color: '#50c8ff', fmt: 'int'}
   {key: 'gpu0_util',  label: 'Util', max: 100,   unit: '%',   color: '#7896ff', fmt: 'int'}
-  {key: 'gpu0_mem',   label: 'VRAM', max: 12288, unit: '',    color: '#c878dc', fmt: 'int'}
+  {key: 'gpu0_mem',   label: 'VRAM', max: 12288, unit: ' MiB', color: '#c878dc', fmt: 'int'}
   {key: 'gpu0_power', label: 'Pwr',  max: 350,   unit: ' W',  color: '#ffb450', fmt: 'flt'}
   {key: 'gpu1_temp',  label: 'Temp', max: 100,   unit: ' °C', color: '#88ff88', fmt: 'int'}
   {key: 'gpu1_fan',   label: 'Fan',  max: 100,   unit: '%',   color: '#50c8ff', fmt: 'int'}
   {key: 'gpu1_util',  label: 'Util', max: 100,   unit: '%',   color: '#7896ff', fmt: 'int'}
-  {key: 'gpu1_mem',   label: 'VRAM', max: 12288, unit: '',    color: '#c878dc', fmt: 'int'}
+  {key: 'gpu1_mem',   label: 'VRAM', max: 12288, unit: ' MiB', color: '#c878dc', fmt: 'int'}
   {key: 'gpu1_power', label: 'Pwr',  max: 350,   unit: ' W',  color: '#ffb450', fmt: 'flt'}
   {key: 'cpu_pkg',    label: 'Pkg',  max: 100,   unit: ' °C', color: '#ff8c50', fmt: 'int'}
   {key: 'cpu_max',    label: 'Max',  max: 100,   unit: ' °C', color: '#ff8c50', fmt: 'int'}
@@ -172,5 +172,5 @@ update: (output, domEl) ->
       poly = spark.querySelector('polyline')
       step = 240 / Math.max(HISTORY_LEN - 1, 1)
       offset = Math.max(0, HISTORY_LEN - h.length) * step
-      pts = (h.map (v, i) -> "#{(offset + i * step).toFixed(1)},#{(18 - (v / 100) * 18).toFixed(1)}").join(' ')
+      pts = (h.map (v, i) -> "#{(offset + i * step).toFixed(1)},#{(15 - (v / 100) * 14).toFixed(1)}").join(' ')
       poly.setAttribute('points', pts)
