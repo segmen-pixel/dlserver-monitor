@@ -38,7 +38,7 @@ command: "ssh trainer /usr/local/bin/trainer-stats"
 refreshFrequency: 3000
 
 style: """
-  top 290px
+  top 420px
   left 0
   width 540px
   background rgba(16, 16, 21, 0.88)

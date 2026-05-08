@@ -7,8 +7,13 @@ metrics = [
   {key: 'gpu0_temp',  label: 'Temp', max: 100,   unit: ' °C', color: '#88ff88', fmt: 'int'}
   {key: 'gpu0_fan',   label: 'Fan',  max: 100,   unit: '%',   color: '#50c8ff', fmt: 'int'}
   {key: 'gpu0_util',  label: 'Util', max: 100,   unit: '%',   color: '#7896ff', fmt: 'int'}
-  {key: 'gpu0_mem',   label: 'VRAM', max: 24576, unit: ' MiB', color: '#c878dc', fmt: 'int'}
-  {key: 'gpu0_power', label: 'Pwr',  max: 350,   unit: ' W',  color: '#ffb450', fmt: 'flt'}
+  {key: 'gpu0_mem',   label: 'VRAM', max: 32768, unit: ' MiB', color: '#c878dc', fmt: 'int'}
+  {key: 'gpu0_power', label: 'Pwr',  max: 600,   unit: ' W',  color: '#ffb450', fmt: 'flt'}
+  {key: 'gpu1_temp',  label: 'Temp', max: 100,   unit: ' °C', color: '#88ff88', fmt: 'int'}
+  {key: 'gpu1_fan',   label: 'Fan',  max: 100,   unit: '%',   color: '#50c8ff', fmt: 'int'}
+  {key: 'gpu1_util',  label: 'Util', max: 100,   unit: '%',   color: '#7896ff', fmt: 'int'}
+  {key: 'gpu1_mem',   label: 'VRAM', max: 24576, unit: ' MiB', color: '#c878dc', fmt: 'int'}
+  {key: 'gpu1_power', label: 'Pwr',  max: 350,   unit: ' W',  color: '#ffb450', fmt: 'flt'}
   {key: 'cpu_pkg',    label: 'Pkg',  max: 100,   unit: ' °C', color: '#ff8c50', fmt: 'int'}
   {key: 'cpu_max',    label: 'Max',  max: 100,   unit: ' °C', color: '#ff8c50', fmt: 'int'}
 ]
@@ -116,8 +121,11 @@ render: -> """
   <h1>DL-SERVER</h1>
   <div class="sub">trainer @ 100.113.135.38 (Windows)</div>
 
-  <div class="header">GPU 0  RTX 3090</div>
+  <div class="header">GPU 0  RTX 5090</div>
   #{groupHtml('gpu0')}
+
+  <div class="header">GPU 1  RTX 3090</div>
+  #{groupHtml('gpu1')}
 
   <div class="header cpu">CPU  i9-13900KF  (ACPI)</div>
   #{groupHtml('cpu')}
@@ -129,7 +137,7 @@ render: -> """
 update: (output, domEl) ->
   errEl = domEl.querySelector("#errmsg1")
   fields = output.trim().split(',')
-  if fields.length < 7
+  if fields.length < 12
     errEl.style.display = 'block'
     errEl.textContent = "fetch failed: #{output.trim().slice(0, 100)}"
     return

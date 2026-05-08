@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'SilentlyContinue'
 $g = (& nvidia-smi --query-gpu=temperature.gpu,fan.speed,utilization.gpu,memory.used,power.draw --format=csv,noheader,nounits)
 $g = $g -replace '[ %W]', ''
+$gpu_csv = ($g -join ',')
 $tz = Get-CimInstance -Namespace root/WMI -ClassName MSAcpi_ThermalZoneTemperature
 $temps = @()
 foreach ($z in $tz) {
@@ -10,4 +11,4 @@ foreach ($z in $tz) {
 if ($temps.Count -eq 0) { $temps = @(0) }
 $cpu_pkg = ($temps | Measure-Object -Average).Average
 $cpu_max = ($temps | Measure-Object -Maximum).Maximum
-"$g,$([int]$cpu_pkg),$([int]$cpu_max)"
+"$gpu_csv,$([int]$cpu_pkg),$([int]$cpu_max)"
