@@ -33,7 +33,7 @@ rowHtml = (m) ->
 groupHtml = (prefix) ->
   (rowHtml(m) for m in metrics when m.key.startsWith(prefix)).join('')
 
-command: "ssh trainer /usr/local/bin/trainer-stats"
+command: "/usr/bin/ssh -i $HOME/.ssh/id_ed25519 -o BatchMode=yes -o ConnectTimeout=5 trainer /usr/local/bin/trainer-stats 2>&1"
 
 refreshFrequency: 3000
 
@@ -115,6 +115,20 @@ style: """
     color #ff6464
     font-size 10px
     padding 8px
+    word-break break-all
+
+    &.ssh
+      color #ffb450
+    &.ps
+      color #ff6464
+    &.parse
+      color #ffe450
+    &.empty
+      color #b478ff
+    &.ok
+      color #64c878
+      font-size 8px
+      padding 2px 8px 0 8px
 """
 
 render: -> """
@@ -135,42 +149,106 @@ render: -> """
 """
 
 update: (output, domEl) ->
+  window.dlmon ?= {}
+  state = window.dlmon.dlserver2 ?= {errCount: 0, lastOk: 0, notified: false}
+
   errEl = domEl.querySelector("#errmsg")
-  fields = output.trim().split(',')
-  if fields.length < 12
+  out = (output ? '').toString().trim()
+  ts = new Date().toLocaleTimeString('ja-JP', {hour12: false})
+  now = Date.now()
+
+  # error classification
+  errKind = null
+  errMsg = null
+  if not out
+    errKind = 'empty'
+    errMsg = "no output (ssh dead / fetch timeout)"
+  else if /Permission denied|Could not resolve|Connection refused|Operation timed out|Connection closed|kex_exchange|Host key|ssh:/i.test(out)
+    errKind = 'ssh'
+    errMsg = out.slice(0, 180)
+  else if /command not found|No such file|Permission|Failed to initialize/i.test(out) and not /^[\d,.\s-]+$/.test(out)
+    errKind = 'ps'
+    errMsg = out.slice(0, 180)
+  else
+    fields = out.split(',')
+    if fields.length < 12
+      errKind = 'parse'
+      errMsg = "got #{fields.length} fields (expected 12): #{out.slice(0, 120)}"
+
+  if errKind
+    state.errCount++
+    suffix = ""
+    if state.lastOk
+      ago = Math.floor((now - state.lastOk) / 1000)
+      suffix = if ago < 60 then " | last ok #{ago}s ago" else " | last ok #{Math.floor(ago/60)}m ago"
     errEl.style.display = 'block'
-    errEl.textContent = "fetch failed: #{output.trim().slice(0, 100)}"
+    errEl.className = "err #{errKind}"
+    errEl.textContent = "[#{errKind}] #{ts} (×#{state.errCount}) #{errMsg}#{suffix}"
+
+    if state.errCount >= 5 and not state.notified
+      state.notified = true
+      try
+        msg = "[#{errKind}] " + errMsg.slice(0, 80).replace(/['"\\]/g, '')
+        require('child_process').exec(
+          "osascript -e 'display notification \"#{msg}\" with title \"DL-SERVER2 widget down\"'"
+        )
+      catch e
+        console.error("notify failed: #{e}")
     return
-  errEl.style.display = 'none'
+
+  # success
+  state.errCount = 0
+  state.lastOk = now
+  state.notified = false
+
+  errEl.style.display = 'block'
+  errEl.className = "err ok"
+  errEl.textContent = "ok @ #{ts}"
+  fields = out.split(',')
 
   values = {}
   for m, i in metrics
-    values[m.key] = parseFloat(fields[i]) || 0
+    v = parseFloat(fields[i])
+    values[m.key] = if isFinite(v) then v else null
 
   for m in metrics
-    val = values[m.key]
-    pct = Math.min(100, Math.max(0, (val / m.max) * 100))
+    try
+      val = values[m.key]
+      valEl = domEl.querySelector("#val-#{m.key}")
+      bar = domEl.querySelector("#bar-#{m.key}")
 
-    bar = domEl.querySelector("#bar-#{m.key}")
-    bar.style.width = "#{pct}%" if bar
+      if val is null
+        if valEl
+          valEl.textContent = "--"
+          valEl.style.color = '#888'
+        continue
 
-    valEl = domEl.querySelector("#val-#{m.key}")
-    if valEl
-      txt = if m.fmt == 'flt' and val % 1 != 0
-        "#{val.toFixed(1)}#{m.unit}"
-      else
-        "#{Math.round(val)}#{m.unit}"
-      valEl.textContent = txt
+      isOutlier = val < 0 or val > m.max * 1.5
+      pct = Math.min(100, Math.max(0, (val / m.max) * 100))
 
-    window.dlhist[m.key] ||= []
-    h = window.dlhist[m.key]
-    h.push(pct)
-    h.shift() while h.length > HISTORY_LEN
+      if bar
+        bar.style.width = "#{pct}%"
+        bar.style.background = if isOutlier then '#ff64ff' else m.color
 
-    spark = domEl.querySelector("#spark-#{m.key}")
-    if spark and h.length > 1
-      poly = spark.querySelector('polyline')
-      step = 240 / Math.max(HISTORY_LEN - 1, 1)
-      offset = Math.max(0, HISTORY_LEN - h.length) * step
-      pts = (h.map (v, i) -> "#{(offset + i * step).toFixed(1)},#{(15 - (v / 100) * 14).toFixed(1)}").join(' ')
-      poly.setAttribute('points', pts)
+      if valEl
+        txt = if m.fmt == 'flt' and val % 1 != 0
+          "#{val.toFixed(1)}#{m.unit}"
+        else
+          "#{Math.round(val)}#{m.unit}"
+        valEl.textContent = txt
+        valEl.style.color = if isOutlier then '#ff64ff' else '#fff'
+
+      window.dlhist[m.key] ||= []
+      h = window.dlhist[m.key]
+      h.push(pct)
+      h.shift() while h.length > HISTORY_LEN
+
+      spark = domEl.querySelector("#spark-#{m.key}")
+      if spark and h.length > 1
+        poly = spark.querySelector('polyline')
+        step = 240 / Math.max(HISTORY_LEN - 1, 1)
+        offset = Math.max(0, HISTORY_LEN - h.length) * step
+        pts = (h.map (v, i) -> "#{(offset + i * step).toFixed(1)},#{(15 - (v / 100) * 14).toFixed(1)}").join(' ')
+        poly.setAttribute('points', pts)
+    catch e
+      console.error("metric #{m.key}: #{e.message}")
